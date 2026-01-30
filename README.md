@@ -1,4 +1,4 @@
-# TRACE (G5 Framework)
+# TRACE 
 
 APR framework with retrieval-based localization, conditional validation (TDD gates), and adaptive tool reasoning.
 
