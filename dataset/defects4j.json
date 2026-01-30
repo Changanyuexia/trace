@@ -1,0 +1,70 @@
+{
+  "name": "defects4j",
+  "version": "2.0.0",
+  "adapter_class": "agent.adapters.defects4j.Defects4JAdapter",
+  "paths": {
+    "index_dir_template": "{APR_DIR}/defects4j_index",
+    "log_dir_template": "logs/{pid}-{bid}b",
+    "meta_dir_template": "{scratch_base}/apr_meta/defects4j/{pid}-{bid}b",
+    "workdir_template": "{scratch_base}/workdirs/defects4j/{pid}-{bid}b.tar.gz",
+    "scratch_base": "/tmp/apr_scratch",
+    "abcoder_asts_dir": "{APR_DIR}/defects4j_index"
+  },
+  "features": {
+    "supports_index_building": true,
+    "supports_tdd_gate": true,
+    "supports_compile_gate": true
+  },
+  "environment": {
+    "defects4j_home": {
+      "default": "../defects4j",
+      "description": "Path to Defects4J installation (relative to apr_new/ or absolute)"
+    },
+    "java": {
+      "required": true,
+      "preferred_versions": ["1.8", "11"],
+      "min_version": "1.8",
+      "max_version": "11",
+      "description": "Java version for Defects4J 2.0.0. Java 8 is preferred for older projects (source/target 1.4), Java 11 works for most projects."
+    },
+    "perl": {
+      "required": true,
+      "description": "Perl 5.x with DBI.pm and other modules (typically installed under .perl5/)"
+    },
+    "timezone": {
+      "default": "America/Los_Angeles",
+      "description": "TZ environment variable (Defects4J requirement)"
+    },
+    "env_vars": {
+      "DEFECTS4J_HOME": {
+        "source": "environment.defects4j_home",
+        "description": "Set from defects4j_home path"
+      },
+      "TZ": {
+        "source": "environment.timezone",
+        "description": "Set from timezone"
+      },
+      "PERL5LIB": {
+        "auto_build": true,
+        "includes": [
+          "{DEFECTS4J_HOME}/framework/lib",
+          "{DEFECTS4J_HOME}/framework/core",
+          "{DEFECTS4J_HOME}/framework/util",
+          "../.perl5/lib/perl5"
+        ],
+        "description": "Auto-built from Defects4J framework paths and .perl5"
+      },
+      "PATH": {
+        "prepend": [
+          "{DEFECTS4J_HOME}/framework/bin",
+          "{JAVA_HOME}/bin"
+        ],
+        "description": "Prepend Defects4J bin and Java bin to PATH"
+      }
+    }
+  }
+}
+
+
+
+

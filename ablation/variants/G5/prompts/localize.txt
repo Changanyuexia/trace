@@ -1,0 +1,34 @@
+Goal: localize the bug precisely (file + likely method + line range) using RED failure + retrieval index.
+
+Rules:
+- Read `red.log` first (from TDD_GATE_RED: "Logfile: ..."). Do NOT read `test.full.log`.
+- If `index_path` is available, use `symbol_lookup` before any `search_in_files`.
+- Keep tool calls minimal (aim <= 10 total; <= 5 symbol lookups).
+
+Workflow (do in order):
+1) Read RED failure
+   - `read_file(red_log_path, start_line=1, end_line=200)` (extend only if needed)
+   - Extract: failing test name, assertion/exception message, top 3 stack frames
+   - From stack/test name, decide `primary_symbol` to investigate
+
+2) Jump to code via index
+   - `symbol_lookup(index_path, primary_symbol)` (try 2-3 variants like `A.b`, `A#b`, FQN)
+   - `read_span(path, start_line, end_line)` to read the definition block
+
+3) Optional: gather call-site context
+   - `find_references(index_path, primary_symbol)` then read up to 3 relevant spans
+
+Return ONLY this JSON:
+{
+  "red_test": "...",
+  "red_failure_summary": "...",
+  "contract": ["...", "..."],
+  "index_path": "...",
+  "primary_symbol": "...",
+  "suspects": [
+    {"file":"...", "reason":"...", "symbols":["..."], "start_line": 1, "end_line": 200}
+  ],
+  "working_set": [{"file":"...", "symbol":"..."}],
+  "search_queries": [],
+  "next_reads": []
+}
