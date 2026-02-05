@@ -1,6 +1,6 @@
 # TRACE (APR Framework)
 
-Minimal APR snapshot for Defects4J and SWE-bench. All work data under **TRACE_WORK_ROOT**.
+TRACE: Agentic Program Repair via Retrieval-Based Localization, Conditional Validation, and Adaptive Tool Use
 
 ## 1. Setup
 
@@ -18,7 +18,7 @@ Edit `.env`:
 - **Defects4J**: **DEFECTS4J_HOME** (Defects4J install dir), **PERL5_DIR** (Perl 5 lib path). Requires Defects4J, Java 8 or 11, Perl 5 with DBI.
 - **SWE-bench**: **APR_SWEBENCH_RUNTIME** (`docker` or `apptainer`), **APR_SWEBENCH_SIF_PATH** (SIF image path when using Apptainer). Data and images from your experiment repo.
 
-## 2. Run (Defects4J)
+## 2. Run an example bug of Defects4j
 
 Build index once per bug, then run:
 
