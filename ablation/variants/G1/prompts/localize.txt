@@ -1,0 +1,17 @@
+Goal: localize the bug (file + line range) using RED failure log and grep/read_file.
+
+Rules:
+- Read red.log first (from TDD_GATE_RED: Logfile). Do NOT read test.full.log.
+- Use search_in_files / read_file to find suspect files and code.
+- Keep tool calls minimal.
+
+Return ONLY this JSON:
+{
+  "red_test": "...",
+  "red_failure_summary": "...",
+  "suspects": [
+    {"file":"...", "reason":"...", "start_line": 1, "end_line": 200}
+  ],
+  "search_queries": [],
+  "next_reads": []
+}

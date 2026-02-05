@@ -1,0 +1,15 @@
+Goal: localize the bug (file + line range) using test failure logs and grep/read_file.
+
+Rules:
+- Read the failing test log (e.g. trigger test output or full test log).
+- Use search_in_files / read_file to find suspect files and code.
+- Keep tool calls minimal.
+
+Return ONLY this JSON:
+{
+  "suspects": [
+    {"file":"...", "reason":"...", "start_line": 1, "end_line": 200}
+  ],
+  "search_queries": [],
+  "next_reads": []
+}

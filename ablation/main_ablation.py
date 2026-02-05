@@ -37,7 +37,7 @@ def main():
     parser.add_argument(
         "--variant",
         type=str,
-        default="G0",
+        default="TRACE",
         choices=["G0", "G1", "G2", "G3", "TRACE"],
         help="Ablation variant (G0=baseline, G1=+TDD, G2=+Index, G3=+Patch/Compile, TRACE=full)",
     )
