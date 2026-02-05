@@ -16,7 +16,7 @@ Edit `.env`:
 
 - **Common**: **TRACE_WORK_ROOT** (e.g. `/tmp/trace_work`), API key (**OPENAI_API_KEY** or **DEEPSEEK_API_KEY**; must match `api_key_env` in `models/example.json`).
 - **Defects4J**: **DEFECTS4J_HOME** (Defects4J install dir), **PERL5_DIR** (Perl 5 lib path). Requires Defects4J, Java 8 or 11, Perl 5 with DBI.
-- **SWE-bench**: **APR_SWEBENCH_RUNTIME** (`docker` or `apptainer`), **APR_SWEBENCH_SIF_PATH** (SIF image path when using Apptainer). Data and images from your experiment repo.
+- **SWE-bench**: **APR_SWEBENCH_RUNTIME** (`docker` or `apptainer`). When using **apptainer**, set **APR_SWEBENCH_SIF_PATH** to the path of your SIF (Singularity/Apptainer image file), e.g. a pre-built SWE-bench testbed image; the runner will use this SIF instead of pulling Docker. Data and instance lists come from your experiment repo.
 
 ## 2. Code structure
 
