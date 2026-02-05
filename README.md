@@ -67,7 +67,7 @@ All work data lives under **TRACE_WORK_ROOT** (see `dataset/defects4j.json`):
 - **defects4j_index/** – Retrieval index: one file per bug (e.g. `Chart-1b_index.json`). Built from the checkout; used by TRACE to retrieve relevant code/test context for the LLM. **You must build this once per bug before running TRACE.**
 - **apr_meta/{pid}-{bid}b**, **logs/{pid}-{bid}b** – Meta and run logs.
 
-## 4. Run (Defects4J)
+## 4. Run
 
 **Step 1 – Build retrieval index** (once per bug; required for **G2** and **TRACE**; optional for G0/G1/G3):
 
