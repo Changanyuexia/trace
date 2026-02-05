@@ -2,6 +2,11 @@
 
 TRACE: Agentic Program Repair via Retrieval-Based Localization, Conditional Validation, and Adaptive Tool Use
 
+**Datasets**
+
+- **Defects4J**: [github.com/rjust/defects4j](https://github.com/rjust/defects4j) — benchmark for automated repair of Java bugs.
+- **SWE-bench Verified**: [SWE-bench Verified (Hugging Face)](https://huggingface.co/datasets/princeton-nlp/SWE-bench_Verified/viewer/default/test?p=4) — benchmark for evaluating code generation and repair models.
+
 ## 1. Setup
 
 ```bash
