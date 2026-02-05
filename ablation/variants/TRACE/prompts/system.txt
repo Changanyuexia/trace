@@ -20,5 +20,3 @@ TDD Gate (hard):
 - You MUST verify GREEN after applying a patch: run the SAME RED test and confirm it passes.
 - Only after GREEN you may run broader validation (trigger batch / full suite).
 
-
-

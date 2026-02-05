@@ -617,15 +617,15 @@ def run_agent_loop_ablation(
                     "role": "user",
                     "content": f"RETRIEVAL_INDEX: {index_path}\n\nYou can use symbol_lookup, find_references, and read_span tools with this index."
                 })
-                print(f"[INFO] [G2/G5] Index available at {index_path}, retrieval tools can be used", file=sys.stderr, flush=True)
+                print(f"[INFO] [G2/TRACE] Index available at {index_path}, retrieval tools can be used", file=sys.stderr, flush=True)
             else:
-                print(f"[WARN] [G2/G5] Index path provided but file does not exist: {index_path}", file=sys.stderr, flush=True)
+                print(f"[WARN] [G2/TRACE] Index path provided but file does not exist: {index_path}", file=sys.stderr, flush=True)
                 messages.append({
                     "role": "user",
                     "content": "RETRIEVAL_INDEX_UNAVAILABLE: The retrieval index was not successfully built. Please use grep/read_file tools for localization instead."
                 })
         else:
-            print(f"[WARN] [G2/G5] Index retrieval enabled but index_path is None/empty, using grep/read_file instead", file=sys.stderr, flush=True)
+            print(f"[WARN] [G2/TRACE] Index retrieval enabled but index_path is None/empty, using grep/read_file instead", file=sys.stderr, flush=True)
             messages.append({
                 "role": "user",
                 "content": "RETRIEVAL_INDEX_UNAVAILABLE: The retrieval index was not successfully built. Please use grep/read_file tools for localization instead."
@@ -1666,7 +1666,7 @@ def run_agent_loop_ablation(
                                 patch_applied = True
 
                                 # Sanity compile check for STRUCTURED EDITS.
-                                # Limit to G3/G5 only (i.e., when compile gate is enabled in the variant),
+                                # Limit to G3/TRACE only (i.e., when compile gate is enabled in the variant),
                                 # so G0/G1/G2 behavior remains unchanged.
                                 if config.enable_patch_compile_gate and config.use_compile_gate:
                                     can_compile_check = False

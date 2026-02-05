@@ -858,10 +858,10 @@ class SWEbenchVerifiedAdapter(DatasetAdapter):
         # Git 使用 GIT_TMPDIR 或 TMPDIR 来创建临时文件
         git_tmpdir = os.environ.get("GIT_TMPDIR") or os.environ.get("TMPDIR")
         if not git_tmpdir:
-            # 尝试使用 scratch 目录或 /tmp（仅环境变量或通用路径，不硬编码内部路径）
-            scratch_base = os.environ.get("SCRATCH_BASE") or os.environ.get("APR_SCRATCH_BASE", "/tmp/apr_scratch")
+            # 尝试使用工作目录根（TRACE_WORK_ROOT）或 /tmp（仅环境变量或通用路径，不硬编码内部路径）
+            work_root = os.environ.get("TRACE_WORK_ROOT") or "/tmp/trace_work"
             git_tmpdir_candidates = [
-                f"{scratch_base}/tmp",
+                f"{work_root}/tmp",
                 "/tmp",
             ]
             for candidate in git_tmpdir_candidates:
@@ -1107,7 +1107,7 @@ class SWEbenchVerifiedAdapter(DatasetAdapter):
                 from dataset.env_config import load_dataset_config, resolve_path_template
                 dataset_cfg = load_dataset_config("swebench_verified")
                 asts_dir_template = dataset_cfg.get("paths", {}).get("abcoder_asts_dir", "{scratch_base}/abcoder_asts/swebench_verified")
-                scratch_base = dataset_cfg.get("paths", {}).get("scratch_base") or os.environ.get("APR_SCRATCH_BASE", "/tmp/apr_scratch")
+                scratch_base = dataset_cfg.get("paths", {}).get("scratch_base") or os.environ.get("TRACE_WORK_ROOT", "/tmp/trace_work")
                 asts_dir = resolve_path_template(asts_dir_template, scratch_base=scratch_base)
                 
                 # Flat format: {instance_id}_index.json
@@ -5868,11 +5868,11 @@ exit "$RUN_RC"
         print(f"[RUN_TEST] Executing test in Apptainer container...", flush=True)
         print(f"[RUN_TEST] Image: {image}", flush=True)
         print(f"[RUN_TEST] Test command: pytest -q -x -k '{test_name}' (or via test file directives)", flush=True)
-        # Allow callers to override test timeout (e.g., for faster G5 verification).
+        # Allow callers to override test timeout (e.g., for faster TRACE verification).
         # Default remains 1800s to preserve existing behavior unless explicitly set.
         timeout_s = 1800
         try:
-            timeout_s = int(os.environ.get("APR_G5_TIMEOUT_SECONDS") or os.environ.get("APR_TEST_TIMEOUT_SECONDS") or "1800")
+            timeout_s = int(os.environ.get("APR_TRACE_TIMEOUT_SECONDS") or os.environ.get("APR_TEST_TIMEOUT_SECONDS") or "1800")
         except Exception:
             timeout_s = 1800
         print(f"[RUN_TEST] Timeout: {timeout_s} seconds", flush=True)

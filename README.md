@@ -1,40 +1,34 @@
-# TRACE 
+# TRACE (APR Framework)
 
-APR framework with retrieval-based localization, conditional validation (TDD gates), and adaptive tool reasoning.
+Minimal APR snapshot for Defects4J and SWE-bench. All work data under **TRACE_WORK_ROOT**.
 
-## Directory layout
-
-```
-trace/
-├── ablation/           # G5 variant config and core loop
-│   ├── variants/G5/    # Prompts and config (localize + patch + index)
-│   ├── core_ablation.py
-│   ├── main_ablation.py
-│   ├── model_loader.py # Uses api_key_env only (no keys in repo)
-│   └── ...
-├── agent/              # Tools and dataset adapters
-│   ├── adapters/       # Defects4J, SWE-bench (copy swebench_verified.py from full repo if needed)
-│   └── tools_*.py
-├── dataset/            # Dataset JSON and env_config (paths use placeholders)
-├── models/             # Model configs: api_key_env only, no API keys
-│   └── example.json
-├── run_g5.py           # Entry: --dataset --workdir --pid --bid --model
-├── requirements.txt
-├── .env.example        # Copy to .env and set OPENAI_API_KEY etc. Do not commit .env.
-└── README.md
-```
-
-## Setup
-
-1. Copy `.env.example` to `.env` and set `OPENAI_API_KEY` (or the env name in your model config). Do not commit `.env`.
-2. Install: `pip install -r requirements.txt`
-3. Set `DEFECTS4J_HOME` if using Defects4J.
-4. Model configs under `models/` use `api_key_env` (e.g. `OPENAI_API_KEY`); no API keys are stored in the repo.
-
-## Run (G5)
+## 1. Setup
 
 ```bash
-python run_g5.py --dataset defects4j --workdir /path/to/workdir --pid Chart --bid 1 --model example
+cd trace
+python -m venv .venv_defects4j
+source .venv_defects4j/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
 ```
 
-API keys are read from the environment only (via `api_key_env` in each model JSON). 
+Edit `.env`: set **TRACE_WORK_ROOT** (e.g. `/tmp/trace_work`), **DEFECTS4J_HOME**, **PERL5_DIR**, and an API key (**OPENAI_API_KEY** or **DEEPSEEK_API_KEY** for `models/example.json`). Defects4J + Java 8/11 + Perl 5 with DBI required.
+
+## 2. Run (Defects4J)
+
+Build index once per bug, then run:
+
+```bash
+cd trace
+source .venv_defects4j/bin/activate
+bash bin/build_index.sh --dataset d4j --pid Chart --bid 1
+./scripts/run_one_defects4j.sh Chart 1
+```
+
+Or direct: `python run_trace.py --dataset defects4j --pid Chart --bid 1 --variant TRACE --model example`
+
+Checkout and paths come from TRACE_WORK_ROOT. Batch: `./scripts/run_batch_defects4j.sh test/test_d4j.txt`.
+
+## 3. Model
+
+`models/example.json`: set `api_key_env`. Copy and edit for other models.

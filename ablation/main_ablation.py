@@ -2,15 +2,18 @@
 Main entry point for ablation study experiments.
 
 This module provides a configurable entry point that can run different variants
-(G0, G1, G2, G3, G5) of the APR system for ablation studies.
+(G0, G1, G2, G3, TRACE) of the APR system for ablation studies.
 """
 import os
 import sys
 from pathlib import Path
 
-# Ensure apr_new/ is on sys.path so `import dataset.env_config` resolves to this repo
-# (and is not shadowed by external packages like HuggingFace `datasets`).
-APR_ROOT = Path(__file__).resolve().parents[1]
+# trace/ is self-contained: use trace's dataset config (paths under TRACE_WORK_ROOT).
+# apr_new/ is only for agent.* / llm (trace has no agent.llm).
+TRACE_ROOT = Path(__file__).resolve().parents[1]
+APR_ROOT = TRACE_ROOT.parent / "apr_new"
+if str(TRACE_ROOT) not in sys.path:
+    sys.path.insert(0, str(TRACE_ROOT))
 if str(APR_ROOT) not in sys.path:
     sys.path.insert(0, str(APR_ROOT))
 
@@ -28,17 +31,26 @@ from ablation.tools import setup_tools
 def main():
     parser = argparse.ArgumentParser(description="APR Ablation Study")
     parser.add_argument("--dataset", type=str, default="defects4j", help="Dataset name")
-    parser.add_argument("--workdir", type=str, required=True, help="Working directory")
+    parser.add_argument("--workdir", type=str, default=None, help="Working directory (default: from TRACE_WORK_ROOT + dataset config)")
     parser.add_argument("--pid", type=str, required=True, help="Project ID")
     parser.add_argument("--bid", type=int, required=True, help="Bug ID")
-    parser.add_argument("--variant", type=str, default="G0", choices=["G0", "G1", "G2", "G3", "G5"], help="Ablation variant (G0=baseline, G1=+TDD, G2=+Index, G3=+Patch/Compile, G5=full)")
-    parser.add_argument("--max-iters", type=int, default=2, help="Maximum iterations")
+    parser.add_argument(
+        "--variant",
+        type=str,
+        default="G0",
+        choices=["G0", "G1", "G2", "G3", "TRACE"],
+        help="Ablation variant (G0=baseline, G1=+TDD, G2=+Index, G3=+Patch/Compile, TRACE=full)",
+    )
+    parser.add_argument("--max-iters", type=int, default=0, help="Maximum iterations (0 = harness/verify only, no patch loop)")
     parser.add_argument("--model", type=str, default="gpt-4o", help="LLM model name")
     
     args = parser.parse_args()
     
-    # Load environment
-    load_dotenv(APR_ROOT / ".env")
+    # Load environment (prefer trace/.env, fallback to apr_new/.env)
+    env_file = TRACE_ROOT / ".env"
+    if not env_file.exists():
+        env_file = APR_ROOT / ".env"
+    load_dotenv(env_file)
     
     # Load variant (config + prompts)
     variant_cfg, prompts = load_variant(args.variant)
@@ -54,23 +66,22 @@ def main():
     adapter = get_adapter(args.dataset)
     ds_paths = get_paths(dataset_cfg, pid=args.pid, bid=args.bid)
     
-    # Paths: workdir goes to scratch, others go to apr_new
-    # If workdir is provided via --workdir, use it; otherwise use configured workdir from scratch
+    # Paths: all under TRACE_WORK_ROOT (from dataset config)
+    work_root = os.environ.get("TRACE_WORK_ROOT", "/tmp/trace_work")
     if args.workdir:
         workdir = args.workdir
     else:
-        workdir = ds_paths.get("workdir", str(APR_ROOT / "runs" / f"{args.pid}-{args.bid}b"))
-    
-    # Index, meta, logs always go to apr_new (permanent storage)
+        workdir = ds_paths.get("workdir") or str(Path(work_root) / "workdirs" / "defects4j" / f"{args.pid}-{args.bid}b")
+
     index_dir = ds_paths.get("index_dir") if (config.enable_index_retrieval and ds_paths.get("index_dir")) else None
     if index_dir:
-        # Ensure index_dir is absolute (already resolved by get_paths)
         index_dir = str(Path(index_dir))
-    
-    # meta_dir: 优先使用环境变量（workdir archives 模式会设置），否则使用配置路径
-    meta_dir = os.environ.get("APR_META_DIR") or (ds_paths.get("meta_dir") if ds_paths.get("meta_dir") else str(APR_ROOT / "runs" / f"{args.pid}-{args.bid}b" / "meta"))
-    # 日志目录包含变体信息，确保每个变体的日志分开保存
-    base_log_dir = ds_paths.get("log_dir") if ds_paths.get("log_dir") else str(APR_ROOT / "logs" / f"{args.pid}-{args.bid}b")
+        # Force index_dir under TRACE_WORK_ROOT (avoid apr_new or other roots)
+        if not index_dir.startswith(work_root) and args.dataset.lower() == "defects4j":
+            index_dir = str(Path(work_root) / "defects4j_index")
+
+    meta_dir = os.environ.get("APR_META_DIR") or ds_paths.get("meta_dir") or str(Path(os.environ.get("TRACE_WORK_ROOT", "/tmp/trace_work")) / "apr_meta" / "defects4j" / f"{args.pid}-{args.bid}b")
+    base_log_dir = ds_paths.get("log_dir") or str(Path(os.environ.get("TRACE_WORK_ROOT", "/tmp/trace_work")) / "logs" / f"{args.pid}-{args.bid}b")
     log_dir = str(Path(base_log_dir) / args.variant)
 
     # 只在目录不存在时创建，避免不必要的 inode 占用
@@ -86,7 +97,8 @@ def main():
 
     index_exists = False
     if index_dir:
-        index_exists = (Path(index_dir) / "index.json").exists()
+        # Flat layout: {index_dir}/{pid}-{bid}b_index.json
+        index_exists = (Path(index_dir) / f"{args.pid}-{args.bid}b_index.json").exists()
 
     # Register TDD Gate functions if enabled (need a RED test name)
     red_test_name = None

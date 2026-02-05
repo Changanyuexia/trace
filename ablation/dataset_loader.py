@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import importlib
 import json
+import os
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -30,9 +31,20 @@ def load_dataset_config(dataset_name: str) -> Dict[str, Any]:
 
 
 def get_adapter(dataset_name: str):
+    """Load adapter from trace/agent so TRACE_WORK_ROOT and trace config are used."""
     cfg = load_dataset_config(dataset_name)
     adapter_path = cfg["adapter_class"]
     module_path, class_name = adapter_path.rsplit(".", 1)
+    # Load adapter from trace/agent so we use trace's paths (TRACE_WORK_ROOT), not apr_new's
+    trace_agent = APR_ROOT / "agent" / "adapters"
+    adapter_file = trace_agent / "defects4j.py" if "defects4j" in adapter_path.lower() else None
+    if adapter_file and adapter_file.exists() and "defects4j" in adapter_path.lower():
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("agent.adapters.defects4j", adapter_file)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        cls = getattr(module, class_name)
+        return cls()
     module = importlib.import_module(module_path)
     cls = getattr(module, class_name)
     return cls()
@@ -40,43 +52,29 @@ def get_adapter(dataset_name: str):
 
 def get_paths(dataset_cfg: Dict[str, Any], *, pid: str, bid: int, scratch_base: Optional[str] = None) -> Dict[str, str]:
     """
-    Get paths for a dataset instance.
-    
-    Args:
-        dataset_cfg: Dataset configuration dictionary
-        pid: Project ID
-        bid: Bug ID
-        scratch_base: Scratch base directory (optional, uses default from config if not provided)
-    
-    Returns:
-        Dictionary of path name -> path string
+    Get paths for a dataset instance. All paths under TRACE_WORK_ROOT.
+    Uses dataset_cfg (from trace/dataset/*.json) and scratch_base from env only.
     """
     paths = dataset_cfg.get("paths", {})
-    
-    # Get scratch_base from config if not provided
-    if scratch_base is None:
-        scratch_base = paths.get("scratch_base", os.environ.get("APR_SCRATCH_BASE", "/tmp/apr_scratch"))
-    
-    if _USE_ENV_CONFIG:
-        # Use env_config utilities for proper path resolution
-        dataset_name = dataset_cfg.get("name", "")
-        resolved_paths = get_dataset_paths(dataset_name, pid=pid, bid=bid, scratch_base=scratch_base)
-        return {
-            "workdir": str(resolved_paths.get("workdir_template", "")),
-            "index_dir": str(resolved_paths.get("index_dir_template", "")),
-            "log_dir": str(resolved_paths.get("log_dir_template", "")),
-            "meta_dir": str(resolved_paths.get("meta_dir_template", "")),
-        }
-    else:
-        # Fallback: simple string formatting
-        def fmt(t: str) -> str:
-            return t.format(pid=pid, bid=f"{bid}b", scratch_base=scratch_base)
-        return {
-            "workdir": fmt(paths.get("workdir_template", "")) if "workdir_template" in paths else "",
-            "index_dir": fmt(paths.get("index_dir_template", "")) if "index_dir_template" in paths else "",
-            "log_dir": fmt(paths.get("log_dir_template", "")) if "log_dir_template" in paths else "",
-            "meta_dir": fmt(paths.get("meta_dir_template", "")) if "meta_dir_template" in paths else "",
-        }
+    if scratch_base is None or (isinstance(scratch_base, str) and not scratch_base.strip()):
+        scratch_base = os.environ.get("TRACE_WORK_ROOT", "/tmp/trace_work")
+
+    def fmt(t: str) -> str:
+        if not t or "{" not in t:
+            return t or ""
+        return (
+            t.replace("{scratch_base}", scratch_base)
+            .replace("{trace_work_root}", scratch_base)
+            .replace("{pid}", pid)
+            .replace("{bid}", str(bid))
+        )
+
+    return {
+        "workdir": fmt(paths.get("workdir_template", "")),
+        "index_dir": fmt(paths.get("index_dir_template", "")),
+        "log_dir": fmt(paths.get("log_dir_template", "")),
+        "meta_dir": fmt(paths.get("meta_dir_template", "")),
+    }
 
 
 

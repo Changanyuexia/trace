@@ -4,7 +4,7 @@ Localize phase tools (LLM-callable).
 These tools are intended for the LOCALIZE stage:
 - read_file
 - search_in_files
-- (G2/G5) symbol_lookup / find_references / read_span
+- (G2/TRACE) symbol_lookup / find_references / read_span
 """
 
 from __future__ import annotations

@@ -1,0 +1,16 @@
+# Do not commit
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+.venv_*/
+*.egg-info/
+.eggs/
+
+# IDE / OS
+.DS_Store
+*.swp
+*.swo

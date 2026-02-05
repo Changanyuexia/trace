@@ -1,5 +1,5 @@
 {
-  "variant_name": "G5",
+  "variant_name": "TRACE",
   "description": "Full system: TDD Gate + Index Retrieval + Patch/Compile Gate",
   "enable_tdd_gate": true,
   "enable_index_retrieval": true,
@@ -19,3 +19,4 @@
   "max_git_apply_failures": 5,
   "max_compile_failures": 5
 }
+

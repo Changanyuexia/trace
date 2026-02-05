@@ -39,7 +39,7 @@ def setup_tools(
       (tools_schema, tool_runtime)
     """
     # Phase mapping (schemas):
-    # - Localize tools: read_file/search_in_files (+ retrieval tools for G2/G5)
+    # - Localize tools: read_file/search_in_files (+ retrieval tools for G2/TRACE)
     # - Patch tools: apply_patch/apply_edits/get_git_diff (+ check_compile when enabled)
     # - Verify tools: verify_red/verify_green when enabled
     tools_schema = localize_tool_schemas(enable_index_retrieval=enable_index_retrieval)

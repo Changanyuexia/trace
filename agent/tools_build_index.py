@@ -1,7 +1,7 @@
 """
 Retrieval-index tools (replacement for ABCoder/LSP-based indexing).
 
-Implements the same tool API used by G2/G5 localization:
+Implements the same tool API used by G2/TRACE localization:
 - symbol_lookup(index_path, symbol)
 - find_references(index_path, symbol)
 - read_span(path, start_line, end_line, workdir)

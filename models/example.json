@@ -1,1 +1,12 @@
-{"name":"example","provider":"openai","model_id":"gpt-4o","api_key_env":"OPENAI_API_KEY","default_params":{"temperature":0.0,"max_tokens":16384,"timeout":180}}
+{
+  "name": "example",
+  "provider": "openai_compat",
+  "model_id": "deepseek-chat",
+  "api_key_env": "DEEPSEEK_API_KEY",
+  "base_url": "https://api.deepseek.com",
+  "default_params": {
+    "temperature": 0.0,
+    "max_tokens": 16384,
+    "timeout": 180
+  }
+}

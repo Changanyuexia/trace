@@ -2,8 +2,9 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 import subprocess
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-SCRIPTS = REPO_ROOT / "scripts"
+# trace/ is self-contained; flow-required scripts are in trace/bin/
+TRACE_ROOT = Path(__file__).resolve().parents[2]
+SCRIPTS = TRACE_ROOT / "bin"
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -157,6 +158,9 @@ def _run(cmd, cwd=None, env=None):
     return {"rc": p.returncode, "stdout": p.stdout, "stderr": p.stderr}
 
 def d4j_checkout(pid: str, bid: int, workdir: str) -> Dict[str, Any]:
+    # Ensure parent directory exists before checkout
+    workdir_path = Path(workdir)
+    workdir_path.parent.mkdir(parents=True, exist_ok=True)
     r = _run([str(SCRIPTS / "d4j_checkout.sh"), pid, str(bid), workdir])
     return {"ok": r["rc"] == 0, "workdir": r["stdout"].strip(), **r}
 
@@ -204,7 +208,10 @@ def harness(pid: str, bid: int, workdir: str, meta_dir: str, full_log: str, trig
     if skip_checkout and (Path(workdir) / ".git").exists():
         print(f"[HARNESS] APR_D4J_SKIP_CHECKOUT=1 and .git exists, skipping defects4j checkout", file=sys.stderr, flush=True)
     else:
-        d4j_checkout(pid, bid, workdir)
+        co = d4j_checkout(pid, bid, workdir)
+        if not co.get("ok"):
+            error_msg = co.get("stderr", "")[:500] if co.get("stderr") else "Unknown checkout error"
+            return {"ok": False, "pid": pid, "bid": bid, "workdir": workdir, "error": f"checkout failed: {error_msg}", "checkout": co}
     
     # Fix compilation configuration issues before running tests
     print(f"[HARNESS] Fixing compilation configuration...", file=sys.stderr, flush=True)
@@ -234,40 +241,21 @@ def harness(pid: str, bid: int, workdir: str, meta_dir: str, full_log: str, trig
         print(f"[HARNESS] Running trigger tests...", file=sys.stderr, flush=True)
         t2 = run_trigger_tests(workdir, trig_file, trig_log)
     
-    # Build retrieval index. Support ABCoder backend if enabled via USE_ABCODER_INDEX env var.
-    # Keep `index_path` field for backward compatibility.
+    # Build retrieval index. Use only paths under TRACE_WORK_ROOT.
     index_path = None
+    bug_id = f"{pid}-{bid}b"
+    work_root = os.environ.get("TRACE_WORK_ROOT", "/tmp/trace_work")
+    index_dir_under_root = str(Path(work_root) / "defects4j_index")
     if index_dir:
-        index_file = str(Path(index_dir) / "index.json")
-        index_file_path = Path(index_file)
-        if index_file_path.exists():
-            print(f"[HARNESS] Index already exists at {index_file}, skipping build...", file=sys.stderr, flush=True)
-            index_path = index_file
-        else:
-            # Default: try to locate ABCoder index from dataset config paths (scratch_base or repo_root).
-            # No need for USE_ABCODER_INDEX env var - we always try to use ABCoder index if available.
-            try:
-                from dataset.env_config import load_dataset_config, resolve_path_template
-                dataset_cfg = load_dataset_config("defects4j")
-                scratch_base = dataset_cfg.get("paths", {}).get("scratch_base") or os.environ.get("APR_SCRATCH_BASE", "/tmp/apr_scratch")
-                
-                bug_id = f"{pid}-{bid}b"
-                
-                # Use index_dir_template with flat format: {bug_id}_index.json
-                index_dir_template = dataset_cfg.get("paths", {}).get("index_dir_template")
-                if index_dir_template:
-                    index_dir = resolve_path_template(index_dir_template, scratch_base=scratch_base)
-                    abcoder_index_path = index_dir / f"{bug_id}_index.json"
-                    
-                    if abcoder_index_path.exists():
-                        print(f"[HARNESS] Using ABCoder raw index: {abcoder_index_path}", file=sys.stderr, flush=True)
-                        index_path = str(abcoder_index_path)
-                    else:
-                        print(f"[HARNESS] WARN: ABCoder index not found at {abcoder_index_path} (index retrieval will be disabled)", file=sys.stderr, flush=True)
-                else:
-                    print(f"[HARNESS] WARN: index_dir_template not configured (index retrieval will be disabled)", file=sys.stderr, flush=True)
-            except Exception as e:
-                print(f"[HARNESS] WARN: Failed to locate ABCoder index: {e} (index retrieval will be disabled)", file=sys.stderr, flush=True)
+        # Prefer index_dir only if under TRACE_WORK_ROOT
+        if str(index_dir).startswith(work_root):
+            index_dir_under_root = str(Path(index_dir).resolve())
+    index_file_path = Path(index_dir_under_root) / f"{bug_id}_index.json"
+    if index_file_path.exists():
+        index_path = str(index_file_path)
+        print(f"[HARNESS] Using index: {index_path}", file=sys.stderr, flush=True)
+    else:
+        print(f"[HARNESS] WARN: Index not found at {index_file_path} (build with bin/build_index.sh; retrieval disabled)", file=sys.stderr, flush=True)
     
     print(f"[HARNESS] Harness completed", file=sys.stderr, flush=True)
     return {
@@ -419,7 +407,7 @@ def build_index_only(
     try:
         from dataset.env_config import load_dataset_config, resolve_path_template
         dataset_cfg = load_dataset_config("defects4j")
-        scratch_base = dataset_cfg.get("paths", {}).get("scratch_base") or os.environ.get("APR_SCRATCH_BASE", "/tmp/apr_scratch")
+        scratch_base = dataset_cfg.get("paths", {}).get("scratch_base") or os.environ.get("TRACE_WORK_ROOT", "/tmp/trace_work")
         
         bug_id = f"{pid}-{bid}b"
         

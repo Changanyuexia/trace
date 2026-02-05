@@ -12,7 +12,7 @@ class AblationConfig:
     
     # Module flags
     enable_tdd_gate: bool = False          # G1: TDD Gate (RED/GREEN verification)
-    enable_index_retrieval: bool = False   # G2/G5: tools_retrieval index retrieval
+    enable_index_retrieval: bool = False   # G2/TRACE: tools_retrieval index retrieval
     enable_patch_compile_gate: bool = False # G3: Patch/Compile gate
     
     # G0 Baseline settings (always enabled)
@@ -41,7 +41,7 @@ class AblationConfig:
     max_tool_calls_per_patch: int = 4     # Maximum tool calls per patch attempt (increased from 3 to allow more learning)
     max_consecutive_direct_patches: int = 5  # Maximum consecutive direct patch returns before stopping (infinite loop detection)
     max_git_apply_failures: int = 5        # Maximum consecutive git apply failures before stopping
-    max_compile_failures: int = 5          # Maximum compilation failures before stopping (G3/G5)
+    max_compile_failures: int = 5          # Maximum compilation failures before stopping (G3/TRACE)
     
     @classmethod
     def from_dict(cls, d: Mapping[str, Any]) -> "AblationConfig":
@@ -86,7 +86,7 @@ class AblationConfig:
         - G1: G0 + TDD Gate
         - G2: G0 + Index Retrieval
         - G3: G0 + Patch/Compile Gate
-        - G5: Full system (all enabled)
+        - TRACE: Full system (all enabled)
         """
         variant = variant.upper()
         
@@ -126,7 +126,7 @@ class AblationConfig:
                 use_canonical_diff=True,
                 use_compile_gate=True,
             )
-        elif variant == "G5":
+        elif variant == "TRACE":
             # Full system: all features enabled
             return cls(
                 enable_tdd_gate=True,
@@ -142,7 +142,7 @@ class AblationConfig:
                 use_compile_gate=True,
             )
         else:
-            raise ValueError(f"Unknown variant: {variant}. Supported: G0, G1, G2, G3, G5")
+            raise ValueError(f"Unknown variant: {variant}. Supported: G0, G1, G2, G3, TRACE")
 
 
 

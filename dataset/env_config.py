@@ -85,16 +85,14 @@ def resolve_path_template(
     if base is None:
         base = APR_ROOT
     
-    # Replace placeholders
+    # Replace placeholders (all paths under TRACE_WORK_ROOT)
     path_str = template
     path_str = path_str.replace("{APR_DIR}", str(base))
-    
     if scratch_base:
         path_str = path_str.replace("{scratch_base}", scratch_base)
-    elif "{scratch_base}" in path_str:
-        # Default scratch base if not provided
-        default_scratch = os.environ.get("APR_SCRATCH_BASE", "/tmp/apr_scratch")
-        path_str = path_str.replace("{scratch_base}", default_scratch)
+    elif "{scratch_base}" in path_str or "{trace_work_root}" in path_str:
+        default_work_root = os.environ.get("TRACE_WORK_ROOT", "/tmp/trace_work")
+        path_str = path_str.replace("{scratch_base}", default_work_root).replace("{trace_work_root}", default_work_root)
     
     if pid:
         path_str = path_str.replace("{pid}", pid)
@@ -134,9 +132,9 @@ def get_dataset_paths(
     
     result = {}
     
-    # Get scratch_base from config if not provided
+    # scratch_base = TRACE_WORK_ROOT (single root for all work data)
     if scratch_base is None:
-        scratch_base = paths_config.get("scratch_base", os.environ.get("APR_SCRATCH_BASE", "/tmp/apr_scratch"))
+        scratch_base = os.environ.get("TRACE_WORK_ROOT", "/tmp/trace_work")
     
     # Resolve each path template
     for key, template in paths_config.items():
