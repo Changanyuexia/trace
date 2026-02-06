@@ -108,6 +108,20 @@ python run_trace.py \
 
 Workdir, index path, meta and logs are taken from `dataset/defects4j.json` (under TRACE_WORK_ROOT). Checkout runs automatically if the workdir does not exist. For batch runs, loop over `pid/bid` or use `scripts/run_batch_defects4j.sh` with a list file (e.g. `test/test_d4j.txt`).
 
+**SWE-bench (example, assuming your experiment repo provides a `swebench_verified` dataset config that points to this TRACE checkout):**
+
+```bash
+python run_trace.py \
+  --dataset swebench_verified \
+  --pid django__django-14311 \
+  --bid 0 \
+  --variant TRACE \
+  --model example \
+  --max-iters 5
+```
+
+Here `--pid` should be a SWE-bench `instance_id` (e.g. entries like `django__django-14311` in `test/test_swe.txt`), and `--bid` is just a small integer used in path naming.
+
 ## 5. Model
 
 `models/example.json`: set `api_key_env`. Copy and edit for other models.
