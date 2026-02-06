@@ -5,7 +5,7 @@ TRACE: Agentic Program Repair via Retrieval-Based Localization, Conditional Vali
 **Datasets**
 
 - **Defects4J**: [github.com/rjust/defects4j](https://github.com/rjust/defects4j) — benchmark for automated repair of Java bugs.
-- **SWE-bench Verified**: [SWE-bench Verified (Hugging Face)](https://huggingface.co/datasets/princeton-nlp/SWE-bench_Verified/viewer/default/test?p=4) — benchmark for evaluating code generation and repair models.
+- **SWE-bench Verified**: [SWE-bench Verified (Hugging Face)](https://huggingface.co/datasets/princeton-nlp/SWE-bench_Verified/viewer/default/test?p=4) — we use the `princeton-nlp/SWE-bench_Verified` dataset (test split) via `agent/adapters/swebench_verified.py`; each `instance_id` (e.g. `django__django-14311`) identifies a single GitHub issue/patch context.
 
 ## 1. Setup
 
@@ -66,15 +66,16 @@ trace/
 
 ## 3. Data layout (under TRACE_WORK_ROOT)
 
-All work data lives under **TRACE_WORK_ROOT** (see `dataset/defects4j.json`):
+All work data lives under **TRACE_WORK_ROOT** (for Defects4J see `dataset/defects4j.json`; for SWE-bench we only use the index directory):
 
 - **workdirs/defects4j/{pid}-{bid}b** – Defects4J checkout for the bug.
 - **defects4j_index/** – Retrieval index: one file per bug (e.g. `Chart-1b_index.json`). Built from the checkout; used by TRACE to retrieve relevant code/test context for the LLM. **You must build this once per bug before running TRACE.**
+- **swebench_index/** – Retrieval index for SWE-bench Verified: one file per `instance_id` (e.g. `django__django-14311_index.json`). Built from an existing SWE-bench workdir using `bin/build_index.sh`.
 - **apr_meta/{pid}-{bid}b**, **logs/{pid}-{bid}b** – Meta and run logs.
 
 ## 4. Run
 
-**Step 1 – Build retrieval index** (once per bug; required for **G2** and **TRACE**; optional for G0/G1/G3):
+**Step 1 – Build retrieval index (Defects4J)** (once per bug; required for **G2** and **TRACE**; optional for G0/G1/G3):
 
 ```bash
 cd trace
@@ -82,7 +83,7 @@ source .venv_defects4j/bin/activate
 bash bin/build_index.sh --dataset d4j --pid Chart --bid 1
 ```
 
-**Step 2 – Run** (use `python run_trace.py` so you can set all parameters):
+**Step 2 – Run (Defects4J)** (use `python run_trace.py` so you can set all parameters):
 
 ```bash
 python run_trace.py \
@@ -91,7 +92,7 @@ python run_trace.py \
   --bid 1 \
   --variant TRACE \
   --model example \
-  --max-iters 5
+  --max-iters 1
 ```
 
 **Arguments:**
@@ -108,19 +109,39 @@ python run_trace.py \
 
 Workdir, index path, meta and logs are taken from `dataset/defects4j.json` (under TRACE_WORK_ROOT). Checkout runs automatically if the workdir does not exist. For batch runs, loop over `pid/bid` or use `scripts/run_batch_defects4j.sh` with a list file (e.g. `test/test_d4j.txt`).
 
-**SWE-bench (example, assuming your experiment repo provides a `swebench_verified` dataset config that points to this TRACE checkout):**
+**SWE-bench Verified (environment, index, run)**  
+TRACE assumes your SWE-bench experiment repo prepares the workdir (checked-out project + tests) for each `instance_id`, and points `--workdir` here when building the index.
 
 ```bash
+# 1) Activate SWE-bench virtualenv (you can create .venv_swebench similar to .venv_defects4j)
+cd trace
+python -m venv .venv_swebench
+source .venv_swebench/bin/activate
+pip install -r requirements.txt
+
+# 2) Build retrieval index once per instance_id (requires an existing SWE-bench workdir)
+export TRACE_WORK_ROOT=/tmp/trace_work
+bash bin/build_index.sh \
+  --dataset swe \
+  --instance-id django__django-14311 \
+  --workdir /path/to/swe_workdirs/django__django-14311
+
+# 3) Run TRACE on that SWE-bench instance
 python run_trace.py \
   --dataset swebench_verified \
   --pid django__django-14311 \
   --bid 0 \
   --variant TRACE \
   --model example \
-  --max-iters 5
+  --max-iters 1
 ```
 
-Here `--pid` should be a SWE-bench `instance_id` (e.g. entries like `django__django-14311` in `test/test_swe.txt`), and `--bid` is just a small integer used in path naming.
+Here:
+
+- `--dataset swebench_verified` tells TRACE to use the SWE-bench Verified adapter (`agent/adapters/swebench_verified.py`).
+- `--pid` is exactly the SWE-bench `instance_id` (e.g. entries like `django__django-14311` in `test/test_swe.txt`).
+- `--bid` is just a small integer used in path naming (not the SWE-bench ID).
+- `--workdir` in `bin/build_index.sh` should point to the instance workdir prepared by your SWE-bench experiment repo or harness.
 
 ## 5. Model
 
