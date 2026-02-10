@@ -84,7 +84,7 @@ def main():
     base_log_dir = ds_paths.get("log_dir") or str(Path(os.environ.get("TRACE_WORK_ROOT", "/tmp/trace_work")) / "logs" / f"{args.pid}-{args.bid}b")
     log_dir = str(Path(base_log_dir) / args.variant)
 
-    # 只在目录不存在时创建，避免不必要的 inode 占用
+    # Create directory only when it does not exist to avoid unnecessary inode use
     meta_path = Path(meta_dir)
     if not meta_path.exists():
         meta_path.mkdir(parents=True, exist_ok=True)

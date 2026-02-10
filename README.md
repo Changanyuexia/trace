@@ -48,7 +48,7 @@ trace/
 ├── bin/                # Flow scripts (checkout, export, test, build_index)
 ├── dataset/            # defects4j.json (paths under TRACE_WORK_ROOT), env_config.py
 ├── models/             # Model configs (api_key_env)
-├── scripts/            # Run helpers (run_one_defects4j, run_batch_defects4j, build_index_defects4j)
+├── scripts/            # Run helpers (run_one_*, run_batch_*, build_index_defects4j, build_index_swe)
 ├── test/               # test_d4j.txt, test_swe.txt
 ├── run_trace.py        # Entry: delegates to ablation.main_ablation
 └── requirements.txt
@@ -119,7 +119,7 @@ python -m venv .venv_swebench
 source .venv_swebench/bin/activate
 pip install -r requirements.txt
 
-# 2) Build retrieval index once per instance_id (requires an existing SWE-bench workdir)
+# 2) Build retrieval index once per instance_id (requires an existing workdir; only TRACE_WORK_ROOT)
 export TRACE_WORK_ROOT=/tmp/trace_work
 bash bin/build_index.sh \
   --dataset swe \

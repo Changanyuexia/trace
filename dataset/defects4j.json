@@ -9,6 +9,7 @@
     "meta_dir_template": "{scratch_base}/apr_meta/defects4j/{pid}-{bid}b",
     "log_dir_template": "{scratch_base}/logs/{pid}-{bid}b"
   },
+  "bugs_file": "defects4j_bugs.txt",
   "features": {
     "supports_index_building": true,
     "supports_tdd_gate": true,

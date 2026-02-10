@@ -39,7 +39,6 @@ def get_adapter(dataset_name: str):
     trace_agent = APR_ROOT / "agent" / "adapters"
     adapter_file = trace_agent / "defects4j.py" if "defects4j" in adapter_path.lower() else None
     if adapter_file and adapter_file.exists() and "defects4j" in adapter_path.lower():
-        import importlib.util
         spec = importlib.util.spec_from_file_location("agent.adapters.defects4j", adapter_file)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)

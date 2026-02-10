@@ -1,0 +1,59 @@
+{
+  "name": "swebench_verified",
+  "version": "4.1.0",
+  "adapter_class": "agent.adapters.swebench_verified.SWEbenchVerifiedAdapter",
+  "paths": {
+    "scratch_base": "",
+    "workdir_template": "{scratch_base}/workdirs/swebench_verified/{pid}",
+    "index_dir_template": "{scratch_base}/swebench_index",
+    "meta_dir_template": "{scratch_base}/apr_meta/swebench_verified/{pid}",
+    "log_dir_template": "{scratch_base}/logs/swebench_verified/{pid}",
+    "abcoder_asts_dir": "{scratch_base}/swebench_index",
+    "sif_archive_dir": "{scratch_base}/sif"
+  },
+  "bugs_file": "swebench_verified_bugs.txt",
+  "features": {
+    "supports_index_building": true,
+    "supports_tdd_gate": false,
+    "supports_compile_gate": false
+  },
+  "environment": {
+    "python": {
+      "required": true,
+      "min_version": "3.8",
+      "description": "Python 3.8+ for SWE-bench harness"
+    },
+    "venv_path": {
+      "default": ".venv_swebench",
+      "description": "Path to SWE-bench Python virtual environment (relative to trace/ or absolute)"
+    },
+    "swebench_repo": {
+      "default": "../third_party/SWE-bench",
+      "description": "Path to SWE-bench repository (relative to trace/ or absolute)"
+    },
+    "hf_cache": {
+      "default": ".hf",
+      "description": "HuggingFace cache directory (relative to trace/ or absolute)"
+    },
+    "apptainer_cache": {
+      "default": "",
+      "description": "Apptainer SIF image cache path (set via .env or use default)"
+    },
+    "apptainer_tmp": {
+      "default": "",
+      "description": "Apptainer temporary build path (set via .env or use default)"
+    },
+    "sif_archive_dir": {
+      "default": "",
+      "description": "Pre-pulled SIF image archive directory (set APR_SWEBENCH_SIF_PATH in .env)"
+    },
+    "env_vars": {
+      "HF_HOME": {"source": "environment.hf_cache", "description": "Set from hf_cache path"},
+      "HUGGINGFACE_HUB_CACHE": {"source": "environment.hf_cache/hub", "description": "Set from hf_cache/hub"},
+      "HF_DATASETS_CACHE": {"source": "environment.hf_cache/datasets", "description": "Set from hf_cache/datasets"},
+      "PYTHONPATH": {"prepend": ["{APR_DIR}"], "description": "Prepend trace/ (or apr_new/) to PYTHONPATH"},
+      "APPTAINER_CACHEDIR": {"source": "environment.apptainer_cache", "description": "Apptainer SIF cache directory"},
+      "APPTAINER_TMPDIR": {"source": "environment.apptainer_tmp", "description": "Apptainer temporary build directory"}
+    }
+  }
+}

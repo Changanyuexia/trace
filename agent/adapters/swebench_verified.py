@@ -97,7 +97,7 @@ def _github_https_url(repo: str) -> str:
 
 
 def _using_workdir_archives() -> bool:
-    # 归档解压模式：workdir 在本地 tmp，实例跑完会整体删除，不做任何“workdir 内部清理”
+    # Archive-extract mode: workdir in local tmp, removed after run; no per-workdir cleanup
     return os.environ.get("APR_USE_WORKDIR_ARCHIVES", "0") == "1"
 
 
@@ -115,7 +115,7 @@ def _run(cmd: list[str], *, cwd: Optional[str] = None, env: Optional[Dict[str, s
     except Exception as e:
         import traceback
         error_trace = traceback.format_exc()
-        # 提取更详细的错误信息（前1000字符，包含完整的异常类型和关键信息）
+        # Include detailed error (first 1000 chars: exception type and key info)
         error_detail = f"Command execution failed: {' '.join(cmd[:10])}...\nError type: {type(e).__name__}\nError: {e}\n{traceback.format_exc()[:1000]}"
         return {"rc": -1, "stdout": "", "stderr": error_detail, "error": str(e)}
 
@@ -262,7 +262,7 @@ def _write_json(path: Path, data: Any) -> None:
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-# Django sitecustomize.py 源码：在 validation 与 run_one_test 两处 heredoc 中复用，修改此处即可生效两处
+# Django sitecustomize.py source: reused in validation and run_one_test heredocs; edit here to apply in both
 _DJANGO_SITECUSTOMIZE_PY_SRC = r"""import os
 import sys
 try:
@@ -282,7 +282,7 @@ try:
     except OSError:
         pass  # Ignore if /testbed doesn't exist yet
     
-    # APR_DJANGO_USE_RUNTESTS=1 时 runtests.py 自行完成 django.setup 与 setup_databases，此处不 import django 以免 "populate() isn't reentrant"
+    # When APR_DJANGO_USE_RUNTESTS=1 runtests.py does django.setup/setup_databases; skip import here to avoid "populate() isn't reentrant"
     if os.environ.get("APR_DJANGO_USE_RUNTESTS") == "1":
         pass
     else:
@@ -375,9 +375,9 @@ try:
             import sys
             print(f'[WARN] Failed to set DATABASES NAME for sqlite3: {_e}', file=sys.stderr, flush=True)
 
-        # MIGRATION_MODULES: 修复 "Cannot resolve bases" 与 "no such table"。
-        # - auth_tests/admin_views: 指定注入的占位 migration（见下），依赖 auth，使 UserProxy 图可解析。
-        # - queries/aggregation: 置 None 时 migrate --run-syncdb 按 model 建表，避免 "no such table: queries_number / aggregation_author"。
+        # MIGRATION_MODULES: fix "Cannot resolve bases" and "no such table".
+        # auth_tests/admin_views: use injected placeholder migrations (below), depend on auth so UserProxy graph resolves.
+        # queries/aggregation: set None so migrate --run-syncdb creates tables from models, avoid "no such table".
         try:
             if settings_loaded:
                 _mm = getattr(settings_mod, 'MIGRATION_MODULES', None)
@@ -393,7 +393,7 @@ try:
             print(f'[WARN] Failed to set MIGRATION_MODULES: {_e}', file=sys.stderr, flush=True)
 
         django.setup()
-        # 注入 auth_tests / admin_views 的占位 migration，使 migrate 图可解析 UserProxy 对 auth.User 的依赖
+        # Inject placeholder migrations for auth_tests/admin_views so migrate resolves UserProxy -> auth.User
         try:
             _tests = '/testbed/tests'
             os.makedirs(_tests, exist_ok=True)
@@ -462,15 +462,13 @@ _DJANGO_SITECUSTOMIZE_HEREDOC = (
 
 def _build_test_environment_script_base() -> str:
     """
-    生成统一的环境配置脚本基础部分。
-    这个函数返回的bash脚本片段包含了Python查找、conda环境创建、pytest安装等通用逻辑。
-    
-    返回的脚本片段应该被插入到测试执行脚本的开头，在项目特定的配置之前。
+    Build the common test-environment script base (Python lookup, conda, pytest, etc.).
+    The returned fragment is inserted at the start of test scripts, before project-specific config.
     """
     return r"""
 # ============================================================================
-# 统一的环境配置脚本（由_build_test_environment_script_base生成）
-# 确保_verify_test_suite和_validate_apptainer使用相同的环境配置逻辑
+# Common test environment script (from _build_test_environment_script_base)
+# Same logic used by _verify_test_suite and _validate_apptainer
 # ============================================================================
 
 set -euo pipefail
@@ -728,7 +726,7 @@ echo "[INFO] Selected PY=$PY" >&2
 "$PY" -V >&2 || true
 "$PY" -c "import sys; print('sys.executable=', sys.executable)" >&2 || true
 
-# scikit-learn: rebuild extensions if needed (统一函数定义)
+# scikit-learn: rebuild extensions if needed (shared helper)
 apr_scikit_rebuild_if_needed() {
   if [ "${APR_IS_SCIKITLEARN:-0}" != "1" ]; then
     return 0
@@ -820,7 +818,7 @@ if [ "${APR_IS_SCIKITLEARN:-0}" = "1" ]; then
 fi
 
 # ============================================================================
-# 环境配置脚本结束，后续是项目特定的配置
+# End of common env script; project-specific config follows
 # ============================================================================
 """
 
@@ -846,7 +844,7 @@ class SWEbenchVerifiedAdapter(DatasetAdapter):
         return m[instance_id]
 
     def checkout(self, pid: str, bid: int, workdir: str) -> Dict[str, Any]:
-        # 清理可能存在的 git lock 文件（并行运行时可能残留）
+        # Remove any leftover git lock file (e.g. from parallel runs)
         wd = Path(workdir)
         if wd.exists() and (wd / ".git" / "index.lock").exists():
             try:
@@ -854,11 +852,10 @@ class SWEbenchVerifiedAdapter(DatasetAdapter):
             except Exception:
                 pass
         
-        # 设置 git 临时目录，避免磁盘配额问题
-        # Git 使用 GIT_TMPDIR 或 TMPDIR 来创建临时文件
+        # Set git temp dir to avoid quota issues (GIT_TMPDIR / TMPDIR)
         git_tmpdir = os.environ.get("GIT_TMPDIR") or os.environ.get("TMPDIR")
         if not git_tmpdir:
-            # 尝试使用工作目录根（TRACE_WORK_ROOT）或 /tmp（仅环境变量或通用路径，不硬编码内部路径）
+            # Prefer TRACE_WORK_ROOT or /tmp (env or generic paths only)
             work_root = os.environ.get("TRACE_WORK_ROOT") or "/tmp/trace_work"
             git_tmpdir_candidates = [
                 f"{work_root}/tmp",
@@ -872,7 +869,7 @@ class SWEbenchVerifiedAdapter(DatasetAdapter):
                 except Exception:
                     continue
         
-        # 为所有 git 命令设置临时目录环境变量
+        # Set temp dir env for all git commands
         git_env = {}
         if git_tmpdir:
             git_env["GIT_TMPDIR"] = git_tmpdir
@@ -889,7 +886,7 @@ class SWEbenchVerifiedAdapter(DatasetAdapter):
 
         wd = Path(workdir)
         if _using_workdir_archives():
-            # 归档解压模式：workdir 应该已经被上层脚本解压出来，并且必须包含 .git
+            # Archive mode: workdir must already be extracted by caller and contain .git
             if not wd.exists():
                 return {"ok": False, "step": "workdir_missing", "workdir": workdir, "error": f"Archived workdir not found: {workdir}", "rc": 1}
             if not (wd / ".git").exists():
@@ -930,24 +927,22 @@ class SWEbenchVerifiedAdapter(DatasetAdapter):
                 if r["rc"] != 0:
                     return {"ok": False, "step": "git_clone", "repo": repo, "workdir": workdir, **r}
 
-        # 智能跳过：如果workdir已存在且已在正确的commit上，跳过checkout
-        # 注意：已经在上面清理过一次，这里检查状态
+        # Skip checkout if workdir already at correct commit
         if (wd / ".git").exists():
-            # 检查当前commit是否等于base_commit
+            # Check if current commit equals base_commit
             r_current = _run(["git", "rev-parse", "HEAD"], cwd=str(wd), timeout=10, env=git_env)
             if r_current["rc"] == 0:
                 current_commit = r_current["stdout"].strip()
                 if current_commit == base_commit:
-                    # 检查test_patch是否已应用（通过检查.swebench_test_patch.diff是否存在且内容匹配）
+                    # Check if test_patch already applied (via .swebench_test_patch.diff existence and content)
                     test_patch_file = wd / ".swebench_test_patch.diff"
                     if test_patch_file.exists():
                         existing_patch = test_patch_file.read_text(encoding="utf-8")
                         if existing_patch.strip() == test_patch.strip():
                             print(f"[CHECKOUT] Workdir already at correct commit {base_commit[:8]}, skipping checkout", flush=True)
-                            # 验证工作目录状态（确保没有未提交的修改）
                             r_status = _run(["git", "status", "--porcelain"], cwd=str(wd), timeout=10, env=git_env)
                             if r_status["rc"] == 0 and not r_status["stdout"].strip():
-                                # 工作目录干净，可以跳过
+                                # Workdir clean, skip checkout
                                 return {"ok": True, "step": "checkout_skipped", "workdir": workdir, "base_commit": base_commit, "note": "Workdir already at correct commit, checkout skipped"}
                             else:
                                 print(f"[CHECKOUT] Workdir has uncommitted changes, will reset and re-checkout", flush=True)
@@ -975,7 +970,7 @@ class SWEbenchVerifiedAdapter(DatasetAdapter):
                     return {"ok": False, "step": "git_fetch", "workdir": workdir, **r}
         
         print(f"[CHECKOUT] Checking out commit {base_commit[:8]}...", flush=True)
-        # 在 checkout 前再次清理 lock 文件（可能在其他步骤中创建）
+        # Remove lock file again before checkout (may have been created in previous steps)
         git_dir = wd / ".git"
         if git_dir.exists():
             lock_file = git_dir / "index.lock"
@@ -986,11 +981,9 @@ class SWEbenchVerifiedAdapter(DatasetAdapter):
                 except Exception:
                     pass
         
-        # 重试逻辑：如果失败且是磁盘配额问题，清理后重试
-        # 注意：对于大型仓库（特别是blobless clone），checkout可能需要较长时间
-        # 增加超时时间到600秒（10分钟）以处理大型仓库
+        # Retry on disk quota or lock file errors; large repos (e.g. blobless) may need long checkout
         max_retries = 3
-        checkout_timeout = 600  # 10分钟，足够处理大型仓库的checkout
+        checkout_timeout = 600  # 10 min for large-repo checkout
         for attempt in range(max_retries):
             if attempt > 0:
                 print(f"[CHECKOUT] Retry attempt {attempt + 1}/{max_retries} for checkout...", flush=True)
@@ -998,11 +991,11 @@ class SWEbenchVerifiedAdapter(DatasetAdapter):
             if r["rc"] == 0:
                 break
             
-            # 检查是否是磁盘配额或 lock 文件问题
+            # Check for disk quota or lock file (retriable)
             stderr_lower = (r.get("stderr") or "").lower()
             if ("disk quota exceeded" in stderr_lower or "index.lock" in stderr_lower) and attempt < max_retries - 1:
                 print(f"[WARN] Checkout failed (attempt {attempt + 1}/{max_retries}): {stderr_lower[:200]}", flush=True)
-                # 清理 lock 文件
+                # Remove lock file
                 if git_dir.exists():
                     lock_file = git_dir / "index.lock"
                     if lock_file.exists():
@@ -1012,10 +1005,10 @@ class SWEbenchVerifiedAdapter(DatasetAdapter):
                         except Exception:
                             pass
                 
-                time.sleep(2)  # 等待更长时间后重试
+                time.sleep(2)  # Wait before retry
                 continue
             
-            # 不是可重试的错误，直接返回
+            # Non-retriable error
             return {"ok": False, "step": "git_checkout", "base_commit": base_commit, "workdir": workdir, **r}
 
         # Apply test_patch locally for agent context (so tests are visible to read_file/grep).
@@ -1043,38 +1036,35 @@ class SWEbenchVerifiedAdapter(DatasetAdapter):
                     }
 
             # Commit test_patch if there are changes
-            # 只添加已修改的已跟踪文件（-u），不添加未跟踪的文件（避免添加 meta/, .bak 等临时文件）
+            # Add only modified tracked files (-u); avoid meta/, .bak, etc.
             r_status = _run(["git", "status", "--porcelain"], cwd=str(wd), env=git_env)
             if r_status["rc"] == 0 and (r_status.get("stdout") or "").strip():
-                # 使用 git add -u 只添加已跟踪文件的修改，不添加未跟踪文件
-                # 这样可以避免添加 meta/, .bak 等临时文件
                 r_add = _run(["git", "add", "-u"], cwd=str(wd), env=git_env)
                 if r_add["rc"] != 0:
                     print(f"[WARN] git add -u failed: {r_add.get('stderr', '')[:200]}", flush=True)
-                    # 如果 git add -u 失败，尝试只添加 test_patch 修改的文件
-                    # 从 git status 输出中提取修改的文件路径
+                    # Fallback: add only files modified by test_patch (from git status)
                     status_lines = (r_status.get("stdout") or "").strip().split("\n")
                     modified_files = []
                     for line in status_lines:
-                        # git status --porcelain 格式: " M file" 或 "MM file" 等
+                        # porcelain format: " M file", "MM file", etc.
                         if line.startswith(" M") or line.startswith("MM") or line.startswith("M "):
                             parts = line.split(None, 1)
                             if len(parts) > 1:
                                 modified_files.append(parts[1])
                     if modified_files:
                         for f in modified_files:
-                            # 跳过临时文件和目录
+                            # Skip temp paths
                             if not any(f.startswith(exclude) for exclude in ["meta/", ".swebench_test_patch.diff", ".bak"]):
                                 _run(["git", "add", f], cwd=str(wd), env=git_env)
                 
-                # 检查是否有文件被添加到暂存区
+                # Check if anything was staged
                 r_status_after = _run(["git", "status", "--porcelain"], cwd=str(wd), env=git_env)
                 staged_changes = [line for line in (r_status_after.get("stdout") or "").strip().split("\n") 
                                  if line and line[0] in "MADRC"]
                 
                 if not staged_changes:
                     print(f"[WARN] No changes staged for commit after git add", flush=True)
-                    # 如果没有暂存的更改，可能 test_patch 已经应用过了，继续执行
+                    # No staged changes; test_patch may already be applied, continue
                 else:
                     r_commit = _run(
                         [
@@ -1185,7 +1175,7 @@ class SWEbenchVerifiedAdapter(DatasetAdapter):
         print(f"[HARNESS] Checkout completed in {checkout_elapsed:.1f}s", flush=True)
         
         if not co.get("ok"):
-            # 输出到 stderr，避免 Python dict 进入 stdout 影响 verify_swe_environment 的 JSON 解析
+            # Print to stderr so stdout stays clean for verify_swe_environment JSON
             print(f"[HARNESS] Checkout failed: {co}", file=sys.stderr, flush=True)
             return {"pid": pid, "bid": bid, "workdir": workdir, "meta_dir": meta_dir, "ok": False, "checkout": co}
 
@@ -1508,7 +1498,7 @@ class SWEbenchVerifiedAdapter(DatasetAdapter):
         # Run each expected-to-pass test individually; fail fast on first failure.
         tests_list_str = ", ".join(all_tests)
 
-        # 使用统一的环境配置脚本基础部分
+        # Use shared test-environment script base
         script = (_build_test_environment_script_base() + r"""
 
 # pylint-dev: per-instance Python switch.
@@ -2305,17 +2295,15 @@ run_pytest_one() {
   if [ "${APR_IS_MATPLOTLIB:-0}" = "1" ]; then
     pytest_extra_args="${pytest_extra_args} -W ignore::pyparsing.warnings.PyparsingDeprecationWarning"
   fi
-  # Django 自测: 所有 Django 测试都用 runtests.py 跑，避免 pytest 下 sitecustomize 的 INSTALLED_APPS/migration 等问题
-  # 只要测试名称格式是 test_method (class.path) 且 runtests.py 存在，就使用 runtests
+  # Django: run all Django tests via runtests.py to avoid INSTALLED_APPS/migration issues under pytest
+  # Use runtests when test name format is test_method (class.path) and runtests.py exists
   if [ "${APR_IS_DJANGO:-0}" = "1" ] && [ -f /testbed/tests/runtests.py ]; then
     if echo "$t" | grep -qE '^[a-zA-Z0-9_]+ *\([a-zA-Z0-9_.]+\)'; then
       class_path=$(echo "$t" | sed -n 's/.*(\([^)]*\)).*/\1/p')
       method_name=$(echo "$t" | sed 's/ *([^)]*).*//')
-      # 移除前缀限制：所有 Django 测试模块都使用 runtests
-      # class_path 格式通常是 tests.module.ClassName 或 module.tests.ClassName
+      # All Django test modules use runtests; class_path format usually tests.module.ClassName
       if echo "$class_path" | grep -qE '\.(tests|test_|tests\.)'; then
-        # 如果 class_path 已经包含方法名（以 method_name 结尾），直接使用 class_path
-        # 否则拼接 method_name
+        # If class_path ends with method_name use as-is; else append method_name
         if echo "$class_path" | grep -qE "\.${method_name}$"; then
           runtests_label="$class_path"
         else
@@ -3116,14 +3104,14 @@ unset IFS
         print(f"[RUN_TEST] Container bind: {bind}", flush=True)
         print(f"[RUN_TEST] Preparing test execution script...", flush=True)
 
-        # 使用统一的环境配置脚本基础部分，然后添加run_one_test特定的项目配置
+        # Use shared env script base then add run_one_test-specific project config
         script = (_build_test_environment_script_base() + r"""
 
 # ============================================================================
-# run_one_test特定的项目配置（在统一环境配置之后）
+# run_one_test-specific project config (after shared env)
 # ============================================================================
 
-# Special case: pytest-dev projects (run_one_test需要更详细的检测)
+# Special case: pytest-dev projects (run_one_test needs finer detection)
 PYTEST_SRC_DIR=""
 if [ "${APR_IS_PYTESTDEV:-0}" = "1" ]; then
   # pytest repo layout is typically:
@@ -5256,8 +5244,8 @@ else
 fi
 
 apply_patch() {
-  # 未使用：test patch 由下方 APR_TEST_PATCH_CONTENT 块用 printf|git apply 直接应用。
-  # 空 heredoc 在部分 bash 下会触发 "unexpected end of file"，故用 : no-op。
+  # Unused: test patch is applied by APR_TEST_PATCH_CONTENT block via printf|git apply.
+  # Empty heredoc can cause "unexpected end of file" in some bash; use : no-op.
   :
 }
 
@@ -5329,21 +5317,19 @@ run_pytest_one() {
   local t="$2"
   t=$(printf '%s' "$t" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
 
-  # Django: 所有 Django 测试都用 runtests.py，避免 pytest 下 sitecustomize 的 INSTALLED_APPS/migration 等问题
+  # Django: run all tests via runtests.py to avoid INSTALLED_APPS/migration issues under pytest
   if [ "${APR_IS_DJANGO:-0}" = "1" ]; then
-    # 调试输出：帮助诊断为什么没有走 runtests（仅对 Django 实例输出，避免噪音）
+    # Debug: why runtests was not used (Django only)
     echo "[DEBUG runtests] APR_IS_DJANGO=${APR_IS_DJANGO:-0}, test_name='$t', runtests.py exists: $([ -f /testbed/tests/runtests.py ] && echo yes || echo no)" >&2
-    # 优先 runtests：所有 Django 测试（格式为 test_method (class.path)）都使用 runtests
+    # Prefer runtests for all Django tests (format test_method (class.path))
     if [ -f /testbed/tests/runtests.py ]; then
       if echo "$t" | grep -qE '^[a-zA-Z0-9_]+ *\([a-zA-Z0-9_.]+\)'; then
         class_path=$(echo "$t" | sed -n 's/.*(\([^)]*\)).*/\1/p')
         method_name=$(echo "$t" | sed 's/ *([^)]*).*//')
         echo "[DEBUG runtests] regex matched, class_path='$class_path', method_name='$method_name'" >&2
-        # 移除前缀限制：所有 Django 测试模块都使用 runtests
-        # class_path 格式通常是 tests.module.ClassName 或 module.tests.ClassName
+        # All Django test modules use runtests; class_path format as above
         if echo "$class_path" | grep -qE '\.(tests|test_|tests\.)'; then
-          # 如果 class_path 已经包含方法名（以 method_name 结尾），直接使用 class_path
-          # 否则拼接 method_name
+          # If class_path ends with method_name use as-is; else append
           if echo "$class_path" | grep -qE "\.${method_name}$"; then
             runtests_label="$class_path"
           else
@@ -5375,11 +5361,10 @@ run_pytest_one() {
         fi
       else
         echo "[DEBUG runtests] regex '^[a-zA-Z0-9_]+ *\([a-zA-Z0-9_.]+\)' did not match test_name='$t'" >&2
-        # 如果测试名称包含特殊字符（如点、冒号、括号等），尝试从测试文件中查找实际的测试方法名
-        # 或者使用测试文件路径通过 runtests.py 运行
+        # If test name has special chars, find actual test method from file or run via runtests path
         if [ -n "$f" ] && [ -f "/testbed/$f" ]; then
           echo "[DEBUG runtests] Test name contains special chars, trying to find test method from file '$f'" >&2
-          # 尝试从测试文件中查找匹配的测试方法名（测试名称可能是 docstring）
+          # Find test method in file (test name may be docstring)
           local test_method=$( "$PY" -c "
 import ast
 import sys
@@ -5390,7 +5375,7 @@ try:
         tree = ast.parse(file.read())
     for node in ast.walk(tree):
         if isinstance(node, ast.FunctionDef) and node.name.startswith('test_'):
-            # 检查 docstring 是否包含测试名称（忽略大小写和空格）
+            # Check if docstring contains test name (case/space insensitive)
             if node.body and isinstance(node.body[0], ast.Expr):
                 if isinstance(node.body[0].value, ast.Str):
                     docstring = node.body[0].value.s
@@ -5398,7 +5383,7 @@ try:
                     docstring = node.body[0].value.value
                 else:
                     continue
-                # 简化匹配：检查测试名称的关键词是否在 docstring 中
+                # Match if test name keywords appear in docstring
                 test_keywords = re.sub(r'[^a-zA-Z0-9\s]', ' ', test_name).split()
                 docstring_lower = docstring.lower()
                 if all(kw.lower() in docstring_lower for kw in test_keywords if len(kw) > 3):
@@ -5408,12 +5393,12 @@ except Exception as e:
     pass
 " 2>/dev/null )
           
-          # 如果找到了测试方法，构建 runtests label
+          # If test method found, build runtests label
           if [ -n "$test_method" ]; then
             local module_path="${f%.py}"
             module_path="${module_path#tests/}"
             module_path="${module_path//\//.}"
-            # 尝试查找测试类
+            # Find test class
             local test_class=$( "$PY" -c "
 import ast
 import sys
@@ -5451,7 +5436,7 @@ except:
             return "${PIPESTATUS[0]}"
           else
             echo "[DEBUG runtests] Could not find test method matching '$t' in file '$f', will try runtests with module path" >&2
-            # 如果找不到具体方法，尝试使用模块路径运行整个测试文件
+            # If no specific method found, run whole test file by module path
             local module_path="${f%.py}"
             module_path="${module_path#tests/}"
             module_path="${module_path//\//.}"
@@ -5476,8 +5461,7 @@ except:
     else
       echo "[DEBUG runtests] /testbed/tests/runtests.py does not exist" >&2
     fi
-    # 非 runtests 的 Django 用例（如 queryset_pickle）：沿用 pytest
-    # 但对于包含特殊字符的测试名称，使用测试文件路径而不是 -k 参数
+    # Non-runtests Django cases (e.g. queryset_pickle): use pytest; for special-char test names use file path not -k
     local django_test_module=""
     if echo "$t" | grep -q '('; then
       django_test_module=$(echo "$t" | sed -n 's/.*(\([^)]*\)).*/\1/p')
@@ -5501,7 +5485,7 @@ except:
       if [ -n "$DJANGO_SETTINGS_RUN" ]; then
         export DJANGO_SETTINGS_MODULE="$DJANGO_SETTINGS_RUN"
       fi
-      # 如果测试名称包含特殊字符，只使用测试文件路径，不使用 -k
+      # If test name has special chars, use file path only, not -k
       if echo "$t" | grep -qE '[().:\[\]{}]'; then
         echo "[DEBUG runtests] Test name contains special chars, running entire test file '$f' instead of using -k" >&2
         if [ -n "$f" ] && [ -f "/testbed/$f" ]; then

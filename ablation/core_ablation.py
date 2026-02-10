@@ -178,12 +178,8 @@ def _is_insufficient_balance_error(error_type: str, error_msg: str) -> bool:
         "out of credit",
         "out of credits",
         "no credit",
-        # Chinese messages (seen in some proxies)
-        "余额不足",
-        "余额",
-        "欠费",
     ]
-    if any(k in ml for k in keywords) or any(k in m for k in ["余额不足", "欠费"]):
+    if any(k in ml for k in keywords):
         return True
 
     # Conservative fallback
@@ -195,14 +191,14 @@ def _is_insufficient_balance_error(error_type: str, error_msg: str) -> bool:
 
 def _is_fatal_stop_immediately(error_type: str, error_msg: str) -> bool:
     """
-    仅对 credits/quota exhausted（含 429+quota 文案）立即跳过、不重试。
-    纯 429（rate limit）不在此处处理，交给下层 is_rate_limit 重试，避免已消耗大量 API 后因一次 429 直接放弃。
+    Skip immediately without retry only for credits/quota exhausted (including 429+quota messages).
+    Pure 429 (rate limit) is handled by is_rate_limit retry below.
     """
     return _is_insufficient_balance_error(error_type, error_msg)
 
 
 def _retry_wait_seconds(retry_count: int, retry_delay: float, error_msg: str, is_rate_limit: bool) -> float:
-    """429 TPM/RPM 按分钟重置：若错误含 per min / TPM / RPM，至少等 60s 以跨过分钟边界。"""
+    """429 TPM/RPM resets per minute: if error contains per min/TPM/RPM, wait at least 60s to cross minute boundary."""
     wait = retry_delay * (2 ** (retry_count - 1))
     if is_rate_limit and error_msg and any(x in (error_msg or "").lower() for x in ("per min", "tpm", "rpm")):
         wait = max(wait, 60.0)
@@ -395,9 +391,9 @@ def run_agent_loop_ablation(
         "total_tool_calls": 0,
         "localization_tool_calls": 0,
         "patch_tool_calls": 0,
-        "localization_tool_calls_by_type": {},  # 定位阶段每个tool的调用次数
-        "patch_tool_calls_by_type": {},  # patch阶段每个tool的调用次数
-        "total_tool_calls_by_type": {},  # 全阶段每个tool的调用次数
+        "localization_tool_calls_by_type": {},
+        "patch_tool_calls_by_type": {},
+        "total_tool_calls_by_type": {},
         "total_tokens": 0,
         # Phase token usage (actual)
         "localization_total_tokens": 0,
@@ -414,8 +410,8 @@ def run_agent_loop_ablation(
         "tdd_gate_red_verified": False,
         "tdd_gate_green_verified": False,
         "runtime_seconds": 0.0,
-        "localization_predicted_files": [],  # 定位阶段预测的文件列表
-        "actual_modified_files": [],  # 实际修改的文件列表（从patch提取）
+        "localization_predicted_files": [],
+        "actual_modified_files": [],
         "file_hit_at_1": False,  # File Hit@1
         "file_hit_at_3": False,  # File Hit@3
     }
@@ -426,13 +422,13 @@ def run_agent_loop_ablation(
         metrics["runtime_seconds"] = end_time - start_time
         result = {"ok": False, "error": error_msg, "metrics": metrics}
         result.update(kwargs)
-        # 如果harness_info存在，记录环境状态
+        # Record harness state if present
         if "harness_info" in kwargs:
             harness_info = kwargs["harness_info"]
             result["harness_ok"] = harness_info.get("ok", False)
             if not result["harness_ok"]:
                 result["harness_error"] = harness_info.get("error", "Harness failed")
-        # 添加编译结果（如果存在且未在kwargs中提供）
+        # Add compile result if present and not in kwargs
         if initial_compile_result is not None and "compile_result" not in result:
             result["compile_result"] = initial_compile_result
         return result
@@ -566,7 +562,7 @@ def run_agent_loop_ablation(
                     print("[ERROR] RED test did not fail (rc=0); cannot proceed", file=sys.stderr, flush=True)
                     return _make_error_result("RED test did not fail; cannot proceed", red_result=red_result)
                 # rc=2: pytest config/collection error; rc=4: no tests collected. Do not proceed to localize/patch.
-                # 兼容 red_rc 为 str（如 "4"）的情形，确保一定会直接停止
+                # Handle red_rc as str (e.g. "4") so we stop immediately
                 try:
                     _rc_int = red_rc if isinstance(red_rc, int) else (int(red_rc) if red_rc is not None else None)
                 except (TypeError, ValueError):
@@ -883,7 +879,7 @@ def run_agent_loop_ablation(
                     error_type = type(e).__name__
                     error_msg = str(e)
 
-                    # credits/quota exhausted：不重试本条，跳过跑下一条。纯 429 走下面 is_rate_limit 重试。
+                    # credits/quota exhausted: skip this bug, no retry. Pure 429 handled by is_rate_limit below.
                     if _is_fatal_stop_immediately(error_type, error_msg):
                         print(f"[WARN] LLM API credits/quota exhausted, skip this bug: {error_type}: {error_msg[:300]}", file=sys.stderr, flush=True)
                         return _make_error_result(f"LLM credits/quota exhausted: {error_type}: {error_msg[:200]}")
@@ -1115,13 +1111,13 @@ def run_agent_loop_ablation(
                 localize_result = json.loads(localize_result_raw)
                 print(f"[INFO] Localization result: {localize_result.get('file', 'N/A')}:{localize_result.get('line', 'N/A')}", file=sys.stderr, flush=True)
                 
-                # 提取预测的文件（可能单个文件或多个文件）
+                # Extract predicted files (single or multiple)
                 from ablation.utils import is_code_file
                 pred_file = localize_result.get("file") or localize_result.get("path")
                 if pred_file and is_code_file(str(pred_file)):
                     if str(pred_file) not in predicted_files:
                         predicted_files.append(str(pred_file))
-                # 支持多文件格式
+                # Support multiple file format
                 if "files" in localize_result and isinstance(localize_result["files"], list):
                     for f in localize_result["files"]:
                         if f and is_code_file(str(f)) and str(f) not in predicted_files:
@@ -1129,8 +1125,8 @@ def run_agent_loop_ablation(
         except Exception as e:
             print(f"[WARN] Failed to parse localization result: {e}", file=sys.stderr, flush=True)
         
-        # 去重并保存（predicted_files已在tool call处理时更新）
-        predicted_files = list(dict.fromkeys(predicted_files))  # 保持顺序的去重
+        # Deduplicate and keep order
+        predicted_files = list(dict.fromkeys(predicted_files))
         metrics["localization_predicted_files"] = predicted_files
         if predicted_files:
             print(f"[INFO] Localization predicted files ({len(predicted_files)}): {predicted_files[:5]}{'...' if len(predicted_files) > 5 else ''}", file=sys.stderr, flush=True)
@@ -1310,7 +1306,7 @@ def run_agent_loop_ablation(
                     error_type = type(e).__name__
                     error_msg = str(e)
 
-                    # credits/quota exhausted：不重试本条，跳过跑下一条。纯 429 走下面 is_rate_limit 重试。
+                    # credits/quota exhausted: skip this bug, no retry. Pure 429 handled by is_rate_limit below.
                     if _is_fatal_stop_immediately(error_type, error_msg):
                         print(f"[WARN] LLM API credits/quota exhausted, skip this bug: {error_type}: {error_msg[:300]}", file=sys.stderr, flush=True)
                         return _make_error_result(f"LLM credits/quota exhausted: {error_type}: {error_msg[:200]}", iterations=it, patch=None)
@@ -2347,14 +2343,14 @@ def run_agent_loop_ablation(
                     "validation": validation_result,
                     "metrics": metrics
                 }
-                # 记录环境状态（harness是否成功）
+                # Record harness state
                 result["harness_ok"] = harness_info.get("ok", True)
                 if not result["harness_ok"]:
                     result["harness_error"] = harness_info.get("error", "Harness failed")
-                # 添加测试套件验证结果（如果存在）
+                # Add test suite verification result if present
                 if "test_suite_verification" in harness_info:
                     result["test_suite_verification"] = harness_info["test_suite_verification"]
-                # 添加编译结果（如果存在）
+                # Add compile result if present
                 if initial_compile_result is not None:
                     result["compile_result"] = initial_compile_result
                 return result
@@ -2454,14 +2450,14 @@ def run_agent_loop_ablation(
         "error": "Reached max iterations without successful patch",
         "metrics": metrics
     }
-    # 记录环境状态（harness是否成功）
+    # Record harness state
     result["harness_ok"] = harness_info.get("ok", True)
     if not result["harness_ok"]:
         result["harness_error"] = harness_info.get("error", "Harness failed")
-    # 添加测试套件验证结果（如果存在）
+    # Add test suite verification result if present
     if "test_suite_verification" in harness_info:
         result["test_suite_verification"] = harness_info["test_suite_verification"]
-    # 添加编译结果（如果存在）
+    # Add compile result if present
     if initial_compile_result is not None:
         result["compile_result"] = initial_compile_result
     return result
