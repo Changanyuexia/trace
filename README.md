@@ -146,3 +146,19 @@ Here:
 ## 5. Model
 
 `models/example.json`: set `api_key_env`. Copy and edit for other models.
+
+## 6. Results and eval
+
+Result files are stored under `results/`: `results/d4j/*.jsonl` (Defects4J) and `results/swe/*.jsonl` (SWE-bench Verified). Each line is one JSON record (dataset, model, pid, ok, metrics, etc.).
+
+To aggregate fix rate per dataset and model:
+
+```bash
+cd trace
+python results/eval.py
+```
+
+Options:
+
+- **`--results-dir DIR`** — Use a different results root (default: `results/` next to the script).
+- **`--json`** — Output a JSON array of `{dataset, model, fixed, total, fix_rate_pct}` instead of a table.
