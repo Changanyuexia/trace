@@ -1,5 +1,5 @@
+# Defects4J virtualenv (.venv_defects4j)
 openai>=1.0.0
 python-dotenv>=1.0.0
 datasets>=2.18.0
 gitpython>=3.1.0
-

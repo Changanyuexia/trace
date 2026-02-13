@@ -9,11 +9,23 @@ TRACE: Agentic Program Repair via Retrieval-Based Localization, Conditional Vali
 
 ## 1. Setup
 
+**Defects4J** (one venv):
+
 ```bash
 cd trace
-python -m venv .venv_defects4j   # for D4J; use .venv_swebench for SWE-bench
+python -m venv .venv_defects4j
 source .venv_defects4j/bin/activate
 pip install -r requirements.txt
+cp .env.example .env
+```
+
+**SWE-bench Verified** (separate venv, extra deps):
+
+```bash
+cd trace
+python -m venv .venv_swebench
+source .venv_swebench/bin/activate
+pip install -r requirements_swebench.txt
 cp .env.example .env
 ```
 
@@ -51,7 +63,8 @@ trace/
 ├── scripts/            # Run helpers (run_one_*, run_batch_*, build_index_defects4j, build_index_swe)
 ├── test/               # test_d4j.txt, test_swe.txt
 ├── run_trace.py        # Entry: delegates to ablation.main_ablation
-└── requirements.txt
+├── requirements.txt    # Defects4J venv
+└── requirements_swebench.txt   # SWE-bench Verified venv
 ```
 
 **Variants** (ablation; use `--variant`):
@@ -113,11 +126,11 @@ Workdir, index path, meta and logs are taken from `dataset/defects4j.json` (unde
 TRACE assumes your SWE-bench experiment repo prepares the workdir (checked-out project + tests) for each `instance_id`, and points `--workdir` here when building the index.
 
 ```bash
-# 1) Activate SWE-bench virtualenv (you can create .venv_swebench similar to .venv_defects4j)
+# 1) Activate SWE-bench virtualenv (install with requirements_swebench.txt)
 cd trace
 python -m venv .venv_swebench
 source .venv_swebench/bin/activate
-pip install -r requirements.txt
+pip install -r requirements_swebench.txt
 
 # 2) Build retrieval index once per instance_id (requires an existing workdir; only TRACE_WORK_ROOT)
 export TRACE_WORK_ROOT=/tmp/trace_work
