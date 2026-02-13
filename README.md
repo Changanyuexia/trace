@@ -33,7 +33,7 @@ Edit `.env`:
 
 - **Common**: **TRACE_WORK_ROOT** (e.g. `/tmp/trace_work`), API key (**OPENAI_API_KEY** or **DEEPSEEK_API_KEY**; must match `api_key_env` in `models/example.json`).
 - **Defects4J**: **DEFECTS4J_HOME** (Defects4J install dir), **PERL5_DIR** (Perl 5 lib path). Requires Defects4J, Java 8 or 11, Perl 5 with DBI.
-- **SWE-bench**: **APR_SWEBENCH_RUNTIME** (`docker` or `apptainer`). When using **apptainer**, set **APR_SWEBENCH_SIF_PATH** to the path of your SIF (Singularity/Apptainer image file), e.g. a pre-built SWE-bench testbed image; the runner will use this SIF instead of pulling Docker. Data and instance lists come from your experiment repo.
+- **SWE-bench**: **APR_SWEBENCH_RUNTIME** (`docker` or `apptainer`). When using **apptainer**, set **APR_SWEBENCH_SIF_PATH** to the path of your SIF (Singularity/Apptainer image file), e.g. a pre-built SWE-bench testbed image; the runner will use this SIF instead of pulling Docker. **Note:** Apptainer/Singularity is a system-level tool (like Docker), not a Python package; install it via system package manager (e.g., `yum install apptainer` or `apt-get install apptainer`). Data and instance lists come from your experiment repo.
 
 ## 2. Code structure
 
@@ -159,6 +159,26 @@ Here:
 ## 5. Model
 
 `models/example.json`: set `api_key_env`. Copy and edit for other models.
+
+### 5.1. vLLM Support (Qwen 72B/32B)
+
+TRACE supports Qwen models via vLLM with OpenAI-compatible API. Both models support function calling (tools) for retrieval-based localization (G2/TRACE variants).
+
+**Qwen2.5-72B-Instruct** (4×H100):
+
+```bash
+sbatch --gpus=4 --mem=160G --partition=gpu_h100 --time=01:00:00 \
+  --wrap="cd trace && source .venv_defects4j/bin/activate && \
+  python run_trace.py --dataset defects4j --pid Chart --bid 1 --variant TRACE --model qwen2.5-72b-vllm --max-iters 1"
+```
+
+**Qwen2.5-Coder-32B-Instruct** (2×A100):
+
+```bash
+sbatch --gpus=2 --mem=80G --partition=gpu_a100 --time=06:00:00 \
+  --wrap="cd trace && source .venv_defects4j/bin/activate && \
+  python run_trace.py --dataset defects4j --pid Chart --bid 1 --variant TRACE --model qwen2.5-coder-32b-vllm --max-iters 1"
+```
 
 ## 6. Results and eval
 
